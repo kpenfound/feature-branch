@@ -9,7 +9,7 @@ class FeatureBranch:
     """Feature Branch module for GitHub development"""
     github_token: Annotated[Secret, Doc("GitHub Token")] | None = field(default=None)
     branch_name: str | None
-    branch: Annotated[Directory, Doc("A git repo")] | None = field(default=None)
+    branch: Annotated[Directory, Doc("A git repo")] | None = field(default=dag.directory())
     @function
     async def create(self, upstream: str, branch_name: str, fork_name: str | None) -> Self:
         """Returns a container that echoes whatever string argument is provided"""
@@ -30,7 +30,7 @@ class FeatureBranch:
     @function
     def with_changes(self, changes: Directory) -> Self:
         """Apply a directory of changes to the branch"""
-        self.branch = changes
+        self.branch = self.branch.with_directory(".", changes)
         return self
 
     @function
@@ -42,26 +42,42 @@ class FeatureBranch:
     @function
     async def pull_request(self, title: str, body: str) -> str:
         """Creates a pull request on the branch with the provided title and body"""
+        origin = await self.get_remote_url("origin")
+        upstream = await self.get_remote_url("upstream")
 
         return await (
             self.env()
             .with_exec([
                 "git",
+                "add",
+                ".",
+            ])
+            .with_exec([
+                "git",
                 "commit",
-                "-am",
-                title,
+                "-m",
+                f"'{title}'",
             ])
             .with_exec([
                 "git",
                 "push",
+                "origin",
+                self.branch_name,
             ])
             .with_exec([
                 "gh",
                 "pr",
                 "create",
                 "--title",
-                title,
-
+                f"'{title}'",
+                "--body",
+                f"'{body}'",
+                "--repo",
+                upstream,
+                "--base",
+                "main",
+                "--head",
+                f"{origin.split('/')[-2]}:{self.branch_name}",
             ])
             .stdout()
         )
@@ -69,11 +85,15 @@ class FeatureBranch:
     @function
     async def get_remote_url(self, remote: str) -> str:
         """Returns a remotes url"""
-        return await (
+        remote = await (
             self.env()
             .with_exec(["git", "remote", "get-url", remote])
             .stdout()
         )
+        remote = str.removesuffix(remote, "\n")
+        remote = str.removesuffix(remote, ".git")
+        remote = str.removeprefix(remote, "https://")
+        return remote
 
     @function
     def env(self) -> Container:
@@ -86,6 +106,8 @@ class FeatureBranch:
             .with_workdir("/src")
             .with_mounted_directory("/src", self.branch)
             .with_exec(["gh", "auth", "setup-git"])
+            .with_exec(["git", "config", "--global", "user.name", "Marvin"])
+            .with_exec(["git", "config", "--global", "user.email", "marvin@dagger.io"])
         )
 
     @function
@@ -98,13 +120,9 @@ class FeatureBranch:
         result = await (
             self.env()
             .with_exec([
-                "gh",
-                "repo",
-                "list",
-                "--json",
-                "name",
-                "--jq",
-                f".[] | select(.name == '{fork_name}') | .name",
+                "sh",
+                "-c",
+                f"gh repo list --json name --jq '.[] | .name' | grep '{fork_name}'",
             ])
             .stdout()
         )
