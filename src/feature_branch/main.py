@@ -11,10 +11,12 @@ class FeatureBranch:
     branch_name: str | None
     branch: Annotated[Directory, Doc("A git repo")] | None = field(default=dag.directory())
     @function
-    async def create(self, upstream: str, branch_name: str, fork_name: str | None) -> Self:
+    async def create(self, upstream: str, branch_name: str, fork_name: str | None, fork: bool = False) -> Self:
         """Returns a container that echoes whatever string argument is provided"""
         self.branch_name = branch_name
-        self = await self.fork(upstream, fork_name)
+        self.branch = dag.git(upstream).head().tree()
+        if fork:
+            self = await self.fork(upstream, fork_name)
         self.branch = (
             self.env()
             .with_exec([
