@@ -9,10 +9,12 @@ class FeatureBranch:
     """Feature Branch module for GitHub development"""
     github_token: Annotated[Secret, Doc("GitHub Token")] | None = field(default=None)
     branch_name: str | None
+    is_fork: bool = False
     branch: Annotated[Directory, Doc("A git repo")] | None = field(default=dag.directory())
     @function
     async def create(self, upstream: str, branch_name: str, fork_name: str | None, fork: bool = False) -> Self:
         """Returns a container that echoes whatever string argument is provided"""
+        self.is_fork = fork
         self.branch_name = branch_name
         self.branch = dag.git(upstream).head().tree()
         if fork:
@@ -45,7 +47,9 @@ class FeatureBranch:
     async def pull_request(self, title: str, body: str) -> str:
         """Creates a pull request on the branch with the provided title and body"""
         origin = await self.get_remote_url("origin")
-        upstream = await self.get_remote_url("upstream")
+        upstream = origin
+        if self.is_fork:
+            upstream = await self.get_remote_url("upstream")
 
         return await (
             self.env()
