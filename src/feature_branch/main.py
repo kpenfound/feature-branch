@@ -11,8 +11,14 @@ class FeatureBranch:
     branch_name: str | None
     is_fork: bool = False
     branch: Annotated[Directory, Doc("A git repo")] | None = field(default=dag.directory())
-    @function
-    async def create(self, upstream: str, branch_name: str, fork_name: str | None, fork: bool = False) -> Self:
+    @classmethod
+    async def create(
+        self,
+        upstream: str,
+        branch_name: str,
+        fork_name: str | None,
+        fork: bool = False
+    ) -> Self:
         """Returns a container that echoes whatever string argument is provided"""
         self.is_fork = fork
         self.branch_name = branch_name
@@ -32,19 +38,29 @@ class FeatureBranch:
         return self
 
     @function
-    def with_changes(self, changes: Directory) -> Self:
+    def with_changes(
+        self,
+        changes: Directory
+    ) -> Self:
         """Apply a directory of changes to the branch"""
         self.branch = self.branch.with_directory(".", changes)
         return self
 
     @function
-    def with_github_token(self, token: Secret) -> Self:
+    def with_github_token(
+        self,
+        token: Secret
+    ) -> Self:
         """Sets the GitHub token"""
         self.github_token = token
         return self
 
     @function
-    async def pull_request(self, title: str, body: str) -> str:
+    async def pull_request(
+        self,
+        title: str,
+        body: str
+    ) -> str:
         """Creates a pull request on the branch with the provided title and body"""
         origin = await self.get_remote_url("origin")
         upstream = origin
@@ -89,7 +105,10 @@ class FeatureBranch:
         )
 
     @function
-    async def get_remote_url(self, remote: str) -> str:
+    async def get_remote_url(
+        self,
+        remote: str
+    ) -> str:
         """Returns a remotes url"""
         remote = await (
             self.env()
@@ -117,7 +136,11 @@ class FeatureBranch:
         )
 
     @function
-    async def fork(self, upstream: str, fork_name: str | None) -> Self:
+    async def fork(
+        self,
+        upstream: str,
+        fork_name: str | None
+    ) -> Self:
         """Forks a repository"""
         if fork_name is None:
             fork_name = upstream.split("/")[-1] + "-fork"
