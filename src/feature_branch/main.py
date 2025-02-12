@@ -19,7 +19,6 @@ class FeatureBranch:
         fork_name: str | None,
         fork: bool = False
     ) -> Self:
-        """Returns a container that echoes whatever string argument is provided"""
         self.is_fork = fork
         self.branch_name = branch_name
         self.branch = dag.git(upstream).head().tree()
